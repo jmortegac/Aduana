@@ -252,7 +252,7 @@ function Get-AduanaDefinicionOrdenes {
         'restaurar-equipo'           = @{ Min = 0; Max = 0; Valores = @(); Booleanas = @() }
         'montar'                     = @{ Min = 0; Max = 1; Valores = @(); Booleanas = @() }
         'inspeccionar'               = @{ Min = 1; Max = 1; Valores = @(); Booleanas = @('json', 'virustotal', 'sin-antivirus') }
-        'copiar'                     = @{ Min = 2; Max = 2; Valores = @(); Booleanas = @('incluir-peligrosos', 'desinfectar', 'json') }
+        'copiar'                     = @{ Min = 2; Max = 2; Valores = @(); Booleanas = @('incluir-peligrosos', 'desinfectar', 'json', 'sin-antivirus') }
         'verificar'                  = @{ Min = 1; Max = 1; Valores = @('firmantes', 'confiar'); Booleanas = @('json') }
         'salida-preparar'            = @{ Min = 1; Max = 1; Valores = @('nombre'); Booleanas = @('borrado-completo', 'si') }
         'salida-limpiar'             = @{ Min = 1; Max = 1; Valores = @(); Booleanas = @('solo-informe') }
@@ -367,7 +367,7 @@ function Get-AduanaAyuda {
         '  centinela [--durante 60] [--aprender]   bloquea la sesión si aparece un teclado nuevo (sentinel)'
         '  montar [<disco>]                        monta un disco USB en solo lectura (mount)'
         '  inspeccionar <ruta> [--json] [--virustotal] [--sin-antivirus]   (inspect)'
-        '  copiar <origen> <destino> [--incluir-peligrosos] [--desinfectar] [--json]   (copy)'
+        '  copiar <origen> <destino> [--incluir-peligrosos] [--desinfectar] [--sin-antivirus] [--json]   (copy)'
         '  verificar <ruta> [--firmantes <fichero>] [--confiar <nombre>] [--json]   (verify)'
         '  sandbox <ruta>                          abre la ruta en Windows Sandbox, sin red'
         ''

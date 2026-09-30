@@ -168,6 +168,17 @@ Describe 'Copia con marca de origen' {
         Should -Invoke Set-AduanaMarcaOrigen -Times $j.copiados -Exactly
     }
 
+    It 'no copia lo que detecta Defender, y con --sin-antivirus ni lo consulta' {
+        Mock Invoke-AduanaDefender { @{ Disponible = $true; Codigo = 2; Salida = "Threat : Virus:DOS/EICAR_Test_File`n    file : $(Join-Path $pendrive 'notas.txt')`n" } }
+        $j = (Invoke-Capturado -Argumentos @('copiar', $pendrive, $destino, '--json')).Salida | ConvertFrom-Json
+        Test-Path (Join-Path $destino 'notas.txt') | Should -BeFalse
+        @($j.omitidos | Where-Object { $_.ruta -eq 'notas.txt' } | ForEach-Object { $_.motivo }) | Should -Be @('antivirus')
+        $otro = Join-Path $TestDrive ("copia-" + [Guid]::NewGuid().ToString('N'))
+        (Invoke-Capturado -Argumentos @('copiar', $pendrive, $otro, '--sin-antivirus')).Codigo | Should -Be 0
+        Test-Path (Join-Path $otro 'notas.txt') | Should -BeTrue
+        Should -Invoke Invoke-AduanaDefender -Times 1 -Exactly
+    }
+
     It 'con --incluir-peligrosos copia también lo peligroso y los paquetes enteros' {
         $r = Invoke-Capturado -Argumentos @('copiar', $pendrive, $destino, '--incluir-peligrosos', '--json')
         $r.Codigo | Should -Be 0
@@ -448,7 +459,8 @@ Describe 'Centinela, Sandbox y cifrado' {
             Should -Invoke Start-AduanaCentinela -ParameterFilter { $Segundos -eq 10 -and $Conocidos -contains 'VID_1111&PID_2222' }
             Mock Start-AduanaCentinela { @{ Disparado = $false; Dispositivo = $null } }
             (Invoke-Capturado -Argumentos @('centinela')).Codigo | Should -Be 0
-            (Invoke-Capturado -Argumentos @('centinela', '--durante', '2')).Codigo | Should -Be 3
+            (Invoke-Capturado -Argumentos @('centinela', '--durante', '0')).Codigo | Should -Be 3
+            (Invoke-Capturado -Argumentos @('centinela', '--durante', '3601')).Codigo | Should -Be 3
         }
         finally {
             Remove-Item Env:\ADUANA_ESTADO

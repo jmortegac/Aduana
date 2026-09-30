@@ -246,7 +246,8 @@ try {
 
     # Copia con marca de origen a NTFS.
     $destino = Join-Path $trabajo 'copia'
-    $r = Invoke-AduanaCli -Argumentos @('copiar', $raiz, $destino, '--json', '--sin-antivirus')
+    # Sin --sin-antivirus, para que la copia pase también por el Defender real.
+    $r = Invoke-AduanaCli -Argumentos @('copiar', $raiz, $destino, '--json')
     Comprobar 'copiar devuelve 0' ($r.Codigo -eq 0) (Get-Diagnostico $r)
     $nota = Join-Path $destino 'notas.txt'
     Comprobar 'copia notas.txt' (Test-Path -LiteralPath $nota)

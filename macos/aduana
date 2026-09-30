@@ -26,7 +26,7 @@ Entrada, cuando te prestan un pendrive
   aduana centinela [--durante 60]        bloquea la sesión si aparece un teclado nuevo
   aduana montar [<disco>]                lo monta en solo lectura, o lista los discos externos
   aduana inspeccionar <volumen> [--json] [--virustotal] [--sin-antivirus]
-  aduana copiar <volumen> <destino> [--incluir-peligrosos] [--desinfectar] [--json]
+  aduana copiar <volumen> <destino> [--incluir-peligrosos] [--desinfectar] [--sin-antivirus] [--json]
   aduana verificar <volumen> [--firmantes <fichero>] [--confiar <nombre>] [--json]
 
 Salida, cuando preparas uno para prestarlo

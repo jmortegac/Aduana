@@ -225,7 +225,8 @@ function Invoke-AduanaCopia {
         [Parameter(Mandatory = $true)]$Reglas,
         [bool]$IncluirPeligrosos = $false,
         [bool]$Desinfectar = $false,
-        [bool]$Json = $false
+        [bool]$Json = $false,
+        [bool]$SinAntivirus = $false
     )
     $origenCompleto = Get-AduanaRutaExistente -Ruta $Origen
     $destinoCompleto = [IO.Path]::GetFullPath($Destino)
@@ -245,6 +246,18 @@ function Invoke-AduanaCopia {
         if ($h.nivel -ne 'peligroso') { continue }
         if (-not $motivos.ContainsKey($h.ruta)) { $motivos[$h.ruta] = New-Object 'System.Collections.Generic.List[string]' }
         $motivos[$h.ruta].Add($h.regla)
+    }
+    # Lo que detecta Defender tampoco se copia, aunque ninguna regla lo marque. Igual que en macOS
+    # con ClamAV.
+    if (-not $SinAntivirus) {
+        $av = Invoke-AduanaDefender -Ruta $origenCompleto
+        if ($av.Disponible) {
+            foreach ($det in (ConvertFrom-AduanaSalidaDefender -Salida $av.Salida -Codigo $av.Codigo).Detecciones) {
+                $rel = Get-AduanaRutaRelativa -Raiz $origenCompleto -Ruta $det.Fichero
+                if (-not $motivos.ContainsKey($rel)) { $motivos[$rel] = New-Object 'System.Collections.Generic.List[string]' }
+                $motivos[$rel].Add('antivirus')
+            }
+        }
     }
 
     [void][IO.Directory]::CreateDirectory($destinoCompleto)
@@ -963,8 +976,8 @@ function Invoke-AduanaCentinela {
         return 0
     }
     $segundos = 60
-    if ($Durante -and (-not [int]::TryParse($Durante, [ref]$segundos) -or $segundos -lt 5 -or $segundos -gt 3600)) {
-        throw (New-AduanaError '--durante tiene que ser un número de segundos entre 5 y 3600.')
+    if ($Durante -and (-not [int]::TryParse($Durante, [ref]$segundos) -or $segundos -lt 1 -or $segundos -gt 3600)) {
+        throw (New-AduanaError '--durante tiene que ser un número de segundos entre 1 y 3600.')
     }
     Write-AduanaLinea -Texto "Centinela armado durante $segundos segundos. Conecta ahora el pendrive. Si aparece un teclado nuevo, bloquearé la sesión." -Color 'Yellow'
     $r = Start-AduanaCentinela -Segundos $segundos -Conocidos $conocidos.ToArray()
@@ -1028,7 +1041,7 @@ function Invoke-Aduana {
                 return (Invoke-AduanaInspeccion -Ruta $pos[0] -Reglas (Import-AduanaReglas -Ruta $rutaReglas) -Json ([bool]$o['json']) -VirusTotal ([bool]$o['virustotal']) -SinAntivirus ([bool]$o['sin-antivirus']))
             }
             'copiar' {
-                return (Invoke-AduanaCopia -Origen $pos[0] -Destino $pos[1] -Reglas (Import-AduanaReglas -Ruta $rutaReglas) -IncluirPeligrosos ([bool]$o['incluir-peligrosos']) -Desinfectar ([bool]$o['desinfectar']) -Json ([bool]$o['json']))
+                return (Invoke-AduanaCopia -Origen $pos[0] -Destino $pos[1] -Reglas (Import-AduanaReglas -Ruta $rutaReglas) -IncluirPeligrosos ([bool]$o['incluir-peligrosos']) -Desinfectar ([bool]$o['desinfectar']) -Json ([bool]$o['json']) -SinAntivirus ([bool]$o['sin-antivirus']))
             }
             'verificar' {
                 return (Invoke-AduanaVerificacion -Ruta $pos[0] -Reglas (Import-AduanaReglas -Ruta $rutaReglas) -Firmantes ([string]$o['firmantes']) -Confiar ([string]$o['confiar']) -Json ([bool]$o['json']))
