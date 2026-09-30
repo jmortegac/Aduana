@@ -408,7 +408,28 @@ function Invoke-AduanaProceso {
     $info.RedirectStandardError = $true
     $info.RedirectStandardInput = ($null -ne $Entrada)
     $info.CreateNoWindow = $true
-    $proceso = [Diagnostics.Process]::Start($info)
+    # El stdin redirigido es un StreamWriter con la codificación de la consola. Si esa codificación
+    # es UTF-8 con BOM, como en un Windows con UTF-8 activado, antepone EF BB BF a los datos y la
+    # firma se verificaría sobre bytes distintos de los firmados. Visto en Windows real, no en Linux.
+    $sinBom = New-Object Text.UTF8Encoding $false
+    $consolaAntes = $null
+    if ($info.RedirectStandardInput) {
+        if ($info.PSObject.Properties['StandardInputEncoding']) {
+            $info.StandardInputEncoding = $sinBom
+        }
+        else {
+            # .NET Framework no tiene StandardInputEncoding y toma la de la consola al arrancar.
+            try { $consolaAntes = [Console]::InputEncoding; [Console]::InputEncoding = $sinBom } catch { $consolaAntes = $null }
+        }
+    }
+    try {
+        $proceso = [Diagnostics.Process]::Start($info)
+    }
+    finally {
+        if ($null -ne $consolaAntes) {
+            try { [Console]::InputEncoding = $consolaAntes } catch { Write-Verbose 'No se pudo restaurar la codificación de entrada de la consola.' }
+        }
+    }
     try {
         # Se leen las dos salidas a la vez para que ninguna llene su búfer y bloquee al proceso.
         $salida = $proceso.StandardOutput.ReadToEndAsync()

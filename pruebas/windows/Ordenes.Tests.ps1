@@ -142,6 +142,13 @@ Describe 'Copia con marca de origen' {
     }
 
     It 'copia lo que no es peligroso, marca cada fichero y deja fuera el resto' {
+        # En Windows PowerShell 5.1 el enlace creado al principio del fichero no llega vivo hasta
+        # aquí, por la limpieza de TestDrive de Pester, así que se asegura justo antes de copiar.
+        if (-not (Get-Item -LiteralPath (Join-Path $pendrive 'enlace') -Force -ErrorAction SilentlyContinue)) {
+            $fuera = Join-Path $TestDrive ('fuera-' + [Guid]::NewGuid().ToString('N'))
+            $null = New-Item -ItemType Directory -Path $fuera
+            $null = New-Item -ItemType SymbolicLink -Path (Join-Path $pendrive 'enlace') -Target $fuera
+        }
         $r = Invoke-Capturado -Argumentos @('copiar', $pendrive, $destino, '--json')
         $r.Codigo | Should -Be 0 -Because "copiar dijo: $($r.Salida) $($r.Errores)"
         $j = $r.Salida | ConvertFrom-Json
