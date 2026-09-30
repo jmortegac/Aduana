@@ -1,0 +1,87 @@
+#!/bin/zsh -f
+# Aduana para macOS. Revisa los pendrives que te prestan y prepara los que prestas.
+# https://github.com/jmortegac/Aduana · Apache-2.0
+#
+# Solo usa lo que trae el sistema. `-f` evita cargar la configuración personal de zsh, para que
+# nada del usuario cambie el comportamiento del script.
+
+emulate -R zsh
+# Sin err_return a propósito: un fallo interno devolvería 1, que en el contrato significa
+# «sospechoso». Los errores se comprueban uno a uno y salen con el código 3.
+setopt no_unset pipe_fail extended_glob no_nomatch
+export LC_ALL=en_US.UTF-8
+umask 077
+
+typeset -g ADUANA_RAIZ=${0:A:h:h}
+for f in "$ADUANA_RAIZ"/macos/lib/*.zsh; do source "$f"; done
+unset f
+
+ayuda() {
+  cat <<EOF
+Aduana $ADUANA_VERSION para macOS
+
+Entrada, cuando te prestan un pendrive
+  aduana preparar-equipo                 endurece este Mac una sola vez
+  aduana restaurar-equipo                deshace lo anterior
+  aduana centinela [--durante 60]        bloquea la sesión si aparece un teclado nuevo
+  aduana montar [<disco>]                lo monta en solo lectura, o lista los discos externos
+  aduana inspeccionar <volumen> [--json] [--virustotal] [--sin-antivirus]
+  aduana copiar <volumen> <destino> [--incluir-peligrosos] [--desinfectar] [--json]
+  aduana verificar <volumen> [--firmantes <fichero>] [--confiar <nombre>] [--json]
+
+Salida, cuando preparas uno para prestarlo
+  aduana salida preparar <disco> [--nombre ADUANA] [--borrado-completo]
+  aduana salida limpiar <volumen> [--solo-informe]
+  aduana salida comprobar-capacidad <volumen> [--limite <MB>]
+  aduana salida firmar <volumen> --clave <clave privada SSH>
+  aduana salida cifrar <carpeta> [--salida <fichero.7z>]
+
+Alias en inglés: prepare-host, restore-host, sentinel, mount, inspect, copy, verify, out prepare,
+out clean, out check-capacity, out sign, out encrypt, help.
+
+Códigos de retorno: 0 nada peligroso ni sospechoso, 1 algo sospechoso, 2 algo peligroso o firma
+no válida, 3 error de uso o del entorno.
+EOF
+}
+
+principal() {
+  local orden=${1:-ayuda}
+  (( $# )) && shift
+  local sub=''
+  if [[ $orden == (salida|out) ]]; then
+    sub=${1:-}
+    (( $# )) && shift
+  fi
+  parsear_argumentos "$@" || return $R_ERROR
+  colores_si_consola
+
+  case $orden in
+    ayuda|help|-h|--help) ayuda; return $R_OK ;;
+    version|--version) print -r -- "Aduana $ADUANA_VERSION"; return $R_OK ;;
+  esac
+
+  cargar_reglas || return $R_ERROR
+
+  case $orden in
+    preparar-equipo|prepare-host) orden_preparar_equipo ;;
+    restaurar-equipo|restore-host) orden_restaurar_equipo ;;
+    montar|mount) orden_montar ;;
+    inspeccionar|inspect) orden_inspeccionar ;;
+    copiar|copy) orden_copiar ;;
+    verificar|verify) orden_verificar ;;
+    centinela|sentinel) orden_centinela ;;
+    sandbox) fallo "Windows Sandbox solo existe en Windows. En macOS, abre el pendrive en una máquina virtual."; return $R_ERROR ;;
+    salida|out)
+      case $sub in
+        preparar|prepare) orden_salida_preparar ;;
+        limpiar|clean) orden_salida_limpiar ;;
+        comprobar-capacidad|check-capacity) orden_salida_capacidad ;;
+        firmar|sign) orden_salida_firmar ;;
+        cifrar|encrypt) orden_salida_cifrar ;;
+        *) fallo "no conozco «salida ${sub}». Prueba con «aduana ayuda»."; return $R_ERROR ;;
+      esac ;;
+    *) fallo "no conozco la orden «$orden». Prueba con «aduana ayuda»."; return $R_ERROR ;;
+  esac
+}
+
+principal "$@"

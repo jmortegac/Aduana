@@ -1,0 +1,7 @@
+# Solo las actions del CI. Aduana no tiene dependencias en tiempo de ejecución.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

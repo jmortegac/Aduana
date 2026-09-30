@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Ningún job escribe en el repositorio. No usar `pull_request_target`, que correría con el contexto
+# del repo base y con secretos sobre el código de un PR ajeno.
+permissions: read-all
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      # Actions fijadas por SHA de commit completo. Para subirlas, resolver el tag nuevo con
+      # `gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq .object.sha` y desreferenciarlo si
+      # el objeto es de tipo `tag`.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Sintaxis de zsh
+        run: for f in macos/aduana macos/lib/*.zsh pruebas/macos/*.zsh; do zsh -n "$f"; done
+
+      # Crea imágenes de disco exFAT que hacen de pendrive y recorre todas las órdenes.
+      - name: Pruebas
+        run: pruebas/macos/ejecutar.zsh
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        # Windows PowerShell 5.1, el que trae Windows de serie y el que usa Aduana. No pwsh.
+        shell: powershell
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Los mismos módulos y hashes que el arnés de Docker (pruebas/docker/Dockerfile). Se bajan
+      # como nupkg y se comprueba su SHA-256 antes de cargarlos, sin pasar por Install-Module.
+      - name: Módulos de prueba verificados
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $modulos = @(
+            @{ Nombre = 'Pester'; Version = '5.9.1'; Hash = '8dd4060fc3bc895f05bd655e4ab82abe346de54a4e6415dfb727cc8378672b69' },
+            @{ Nombre = 'PSScriptAnalyzer'; Version = '1.25.0'; Hash = '14e634c828eb98efb9f40b2918ba90f139ed5eccdf663a2a747736d996995d60' }
+          )
+          $raiz = Join-Path $env:RUNNER_TEMP 'modulos'
+          foreach ($m in $modulos) {
+            $zip = Join-Path $env:RUNNER_TEMP "$($m.Nombre).zip"
+            Invoke-WebRequest -UseBasicParsing -Uri "https://www.powershellgallery.com/api/v2/package/$($m.Nombre)/$($m.Version)" -OutFile $zip
+            $hash = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($hash -ne $m.Hash) { throw "Hash de $($m.Nombre) inesperado: $hash" }
+            $destino = Join-Path (Join-Path $raiz $m.Nombre) $m.Version
+            Expand-Archive -Path $zip -DestinationPath $destino
+            Remove-Item -Recurse -Force -Path (Join-Path $destino '_rels'), (Join-Path $destino 'package'), (Join-Path $destino '[[]Content_Types[]].xml'), (Join-Path $destino "$($m.Nombre).nuspec") -ErrorAction SilentlyContinue
+          }
+          "PSModulePath=$raiz;$env:PSModulePath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Versión de PowerShell
+        run: $PSVersionTable
+
+      # Sintaxis, BOM, caracteres de engaño, PSScriptAnalyzer y Pester, esta vez en Windows real.
+      - name: Pruebas
+        run: .\pruebas\docker\ejecutar.ps1

@@ -1,0 +1,8 @@
+# Plan y lecciones de trabajo, fuera del repo público a propósito.
+tasks/
+
+# Artefactos de pruebas y de release.
+/salida-pruebas/
+/dist/
+*.dmg.tmp
+.DS_Store

@@ -1,0 +1,9 @@
+# Escaneo de secretos antes de cada commit, con el hook de terceros fijado por SHA de commit
+# completo y no por tag, que se puede mover con un force-push.
+#
+# Activar en un clon nuevo con: pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # v8.30.1
+    hooks:
+      - id: gitleaks

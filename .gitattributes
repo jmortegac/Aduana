@@ -1,0 +1,4 @@
+* text=auto eol=lf
+# Los scripts de PowerShell se guardan en UTF-8 con BOM, porque PowerShell 5.1 lee como ANSI
+# cualquier .ps1 sin BOM y rompería las tildes y los caracteres que Aduana busca en los nombres.
+*.ps1 text eol=crlf
