@@ -366,10 +366,14 @@ function Find-AduanaPrograma {
     return $null
 }
 
+# Primero el ssh-keygen de Windows y solo después el del PATH. Así un ssh-keygen.exe puesto en una
+# carpeta del PATH no puede colarse en la firma, y no se usa por sorpresa el de Git para Windows.
 function Find-AduanaSshKeygen {
-    $rutas = @()
-    if ($env:WINDIR) { $rutas += (Join-Path $env:WINDIR 'System32\OpenSSH\ssh-keygen.exe') }
-    return (Find-AduanaPrograma -Nombres @('ssh-keygen') -Rutas $rutas)
+    if ($env:WINDIR) {
+        $sistema = Join-Path $env:WINDIR 'System32\OpenSSH\ssh-keygen.exe'
+        if (Test-Path -LiteralPath $sistema -PathType Leaf) { return $sistema }
+    }
+    return (Find-AduanaPrograma -Nombres @('ssh-keygen'))
 }
 
 function Find-Aduana7z {

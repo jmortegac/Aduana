@@ -471,6 +471,10 @@ function Invoke-AduanaVerificacion {
         finally {
             Remove-Item -LiteralPath $temporal -Force -ErrorAction SilentlyContinue
         }
+        if ($r.Codigo -ne 0 -and $r.Error) {
+            # Lo que diga ssh-keygen ayuda a distinguir una firma falsa de un problema del sistema.
+            Write-AduanaError ('ssh-keygen no acepta la firma: ' + (Format-AduanaNombreSeguro -Texto $r.Error.Trim() -Reglas $Reglas))
+        }
         if ($r.Codigo -eq 0) {
             $firma.huella = Get-AduanaHuellaClave -SshKeygen $ssh -Publica $pub
             $conocido = Find-AduanaFirmante -Fichero $Firmantes -Tipo $clave.Tipo -Material $clave.Material

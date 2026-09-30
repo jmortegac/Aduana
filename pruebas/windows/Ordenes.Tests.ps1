@@ -65,6 +65,9 @@ Describe 'Aduana.ps1 como proceso' {
     }
 
     It 'devuelve 3 ante un error de uso o una ruta que no existe' {
+        # Windows PowerShell 5.1 convierte en excepción el stderr de un proceso hijo si la
+        # preferencia de errores es Stop, aunque se redirija. Aquí ese stderr es lo esperado.
+        $ErrorActionPreference = 'Continue'
         & $pwsh -NoProfile -NonInteractive -File $script volar 2>$null | Out-Null
         $LASTEXITCODE | Should -Be 3
         & $pwsh -NoProfile -NonInteractive -File $script inspeccionar (Join-Path $TestDrive 'nada') 2>$null | Out-Null
@@ -88,7 +91,7 @@ Describe 'Inspección con la capa de sistema simulada' {
         Get-ParesHallazgos $j.hallazgos | Should -Contain 'notas.txt|antivirus'
     }
 
-    It 'dice que el antivirus no está disponible fuera de Windows' {
+    It 'dice que el antivirus no está disponible fuera de Windows' -Skip:($env:OS -eq 'Windows_NT') {
         $r = Invoke-Capturado -Argumentos @('inspeccionar', $pendrive, '--json')
         ($r.Salida | ConvertFrom-Json).antivirus.estado | Should -Be 'no-disponible'
     }
@@ -140,7 +143,7 @@ Describe 'Copia con marca de origen' {
 
     It 'copia lo que no es peligroso, marca cada fichero y deja fuera el resto' {
         $r = Invoke-Capturado -Argumentos @('copiar', $pendrive, $destino, '--json')
-        $r.Codigo | Should -Be 0
+        $r.Codigo | Should -Be 0 -Because "copiar dijo: $($r.Salida) $($r.Errores)"
         $j = $r.Salida | ConvertFrom-Json
         @($j.PSObject.Properties.Name) | Should -Be @('aduana', 'orden', 'origen', 'destino', 'fecha', 'sistema', 'copiados', 'marcados', 'omitidos', 'avisos')
         $j.marcados | Should -Be $j.copiados
@@ -153,7 +156,8 @@ Describe 'Copia con marca de origen' {
         Test-Path (Join-Path $destino 'Programa.app') | Should -BeFalse
         Test-Path (Join-Path $destino 'enlace') | Should -BeFalse
         @($j.omitidos | ForEach-Object { $_.ruta }) | Should -Contain 'factura.pdf.exe'
-        @($j.omitidos | ForEach-Object { $_.ruta }) | Should -Contain 'enlace'
+        $enlaceEnPendrive = Get-Item -LiteralPath (Join-Path $pendrive 'enlace') -Force -ErrorAction SilentlyContinue
+        @($j.omitidos | ForEach-Object { $_.ruta }) | Should -Contain 'enlace' -Because "omitidos: $(@($j.omitidos | ForEach-Object { $_.ruta }) -join ' | '); en el pendrive: $(if ($enlaceEnPendrive) { $enlaceEnPendrive.Attributes } else { 'no existe' })"
         Should -Invoke Set-AduanaMarcaOrigen -Times $j.copiados -Exactly
     }
 
