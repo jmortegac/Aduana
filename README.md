@@ -150,9 +150,11 @@ pruebas/interoperabilidad.zsh     # lo firmado en un sistema se verifica en el o
 ```
 
 Los ficheros trampa se generan durante la prueba, así que el repositorio no contiene nada
-malicioso. El contenedor analiza la compatibilidad con PowerShell 5.1 y prueba la lógica, pero lo
-que toca Windows de verdad (registro, discos, Defender, Sandbox) solo se prueba en el CI, sobre
-Windows real.
+malicioso. El contenedor analiza la compatibilidad con PowerShell 5.1 y prueba la lógica. Lo que
+toca Windows de verdad se prueba sin mocks en el workflow de integración, sobre el runner de
+Windows de GitHub: registro, un disco virtual formateado como pendrive, montaje en solo lectura,
+`Zone.Identifier`, Defender con EICAR, el centinela y la firma con el `ssh-keygen` de Windows
+(`pruebas/integracion/windows.ps1`, que no conviene lanzar en un equipo personal).
 
 ## Precedentes y créditos
 

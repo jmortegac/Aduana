@@ -1,0 +1,37 @@
+name: Integración en Windows
+
+# Pruebas sin mocks en Windows real: registro, un disco virtual formateado como pendrive, montaje
+# en solo lectura, Zone.Identifier, Defender con EICAR, el centinela compilado con .NET Framework y
+# la firma con el ssh-keygen de Windows. Van aparte del CI porque tardan más y porque tocan el
+# sistema; en el runner eso no importa, que se descarta al terminar.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Los lunes, para enterarse si una actualización de la imagen de Windows rompe algo.
+    - cron: '17 5 * * 1'
+
+permissions: read-all
+
+concurrency:
+  group: integracion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        # Windows PowerShell 5.1, el que trae Windows de serie y el que usa Aduana.
+        shell: powershell
+    steps:
+      # Actions fijadas por SHA de commit completo, igual que en ci.yml.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pruebas de integración
+        run: .\pruebas\integracion\windows.ps1
