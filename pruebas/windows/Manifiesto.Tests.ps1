@@ -111,7 +111,7 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
         $bytes[0] | Should -Be ([byte][char]'#')
 
         $r = Invoke-Capturado -Argumentos @('verificar', $vol, '--json')
-        $r.Codigo | Should -Be 1
+        $r.Codigo | Should -Be 1 -Because "verificar dijo: $($r.Salida) $($r.Errores)"
         $j = $r.Salida | ConvertFrom-Json
         @($j.PSObject.Properties.Name) | Should -Be @('aduana', 'orden', 'ruta', 'fecha', 'sistema', 'firma', 'cambios', 'veredicto')
         @($j.firma.PSObject.Properties.Name) | Should -Be @('estado', 'firmante', 'huella')
@@ -130,7 +130,9 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
         [IO.File]::WriteAllText((Join-Path $vol 'a.txt'), 'AAA')
         Remove-Item (Join-Path $vol 'b.txt')
         Write-FixtureTexto (Join-Path $vol 'nuevo.txt') 'nuevo'
-        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target ([IO.Path]::GetTempPath())
+        $fuera = Join-Path $TestDrive ('fuera-' + [Guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path $fuera
+        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target $fuera
         Write-FixtureTexto (Join-Path $vol '.DS_Store') 'otra basura'
         $r = Invoke-Capturado -Argumentos @('verificar', $vol, '--json')
         $r.Codigo | Should -Be 2
@@ -187,11 +189,14 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
         Remove-Item (Join-Path $vol 'nuevo.txt')
         # La clave puede estar ya entre los firmantes por otra prueba; lo que importa es que el
         # manifiesto anterior sigue verificando intacto.
-        ((Invoke-Capturado -Argumentos @('verificar', $vol, '--json')).Salida | ConvertFrom-Json).veredicto | Should -Be 'intacto'
+        $r = Invoke-Capturado -Argumentos @('verificar', $vol, '--json')
+        ($r.Salida | ConvertFrom-Json).veredicto | Should -Be 'intacto' -Because "verificar dijo: $($r.Salida) $($r.Errores)"
     }
 
     It 'se niega a firmar con enlaces simbólicos' -Skip:(-not $haySsh) {
-        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target ([IO.Path]::GetTempPath())
+        $fuera = Join-Path $TestDrive ('fuera-' + [Guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path $fuera
+        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target $fuera
         $r = Invoke-Capturado -Argumentos @('salida', 'firmar', $vol, '--clave', $clave)
         $r.Codigo | Should -Be 3
         Test-Path (Join-Path $vol 'ADUANA-MANIFIESTO.txt') | Should -BeFalse

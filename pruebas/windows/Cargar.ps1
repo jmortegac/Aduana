@@ -100,7 +100,11 @@ function New-FixturePendrive {
     Write-FixtureBytes (Join-Path (Join-Path $Raiz 'Fotos') 'vacaciones.jpg') ([byte[]]@(0xff, 0xd8, 0xff, 0xe0, 0, 0))
     Write-FixtureBytes (Join-Path (Join-Path (Join-Path (Join-Path $Raiz 'Programa.app') 'Contents') 'MacOS') 'Programa') ([byte[]]@(0xcf, 0xfa, 0xed, 0xfe))
     Write-FixtureTexto (Join-Path $Raiz 'pagina.html') '<html></html>'
-    $null = New-Item -ItemType SymbolicLink -Path (Join-Path $Raiz 'enlace') -Target ([IO.Path]::GetTempPath())
+    # El enlace apunta a una carpeta hermana del volumen. Apuntar a un antepasado, como el
+    # directorio temporal, crea un bucle que rompe la limpieza de Pester en Windows.
+    $fuera = Join-Path (Split-Path -Path $Raiz -Parent) ('fuera-' + [Guid]::NewGuid().ToString('N'))
+    $null = New-Item -ItemType Directory -Path $fuera
+    $null = New-Item -ItemType SymbolicLink -Path (Join-Path $Raiz 'enlace') -Target $fuera
 }
 
 # Deja una clave privada legible por cualquiera. En Windows, OpenSSH mira las ACL y no los bits de
