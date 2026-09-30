@@ -100,7 +100,19 @@ function New-FixturePendrive {
     Write-FixtureBytes (Join-Path (Join-Path $Raiz 'Fotos') 'vacaciones.jpg') ([byte[]]@(0xff, 0xd8, 0xff, 0xe0, 0, 0))
     Write-FixtureBytes (Join-Path (Join-Path (Join-Path (Join-Path $Raiz 'Programa.app') 'Contents') 'MacOS') 'Programa') ([byte[]]@(0xcf, 0xfa, 0xed, 0xfe))
     Write-FixtureTexto (Join-Path $Raiz 'pagina.html') '<html></html>'
-    $null = New-Item -ItemType SymbolicLink -Path (Join-Path $Raiz 'enlace') -Target '/etc'
+    $null = New-Item -ItemType SymbolicLink -Path (Join-Path $Raiz 'enlace') -Target ([IO.Path]::GetTempPath())
+}
+
+# Deja una clave privada legible por cualquiera. En Windows, OpenSSH mira las ACL y no los bits de
+# modo, así que se concede lectura a Todos con icacls, por su SID para no depender del idioma.
+function Open-FixtureClaveAOtros {
+    param([string]$Ruta)
+    if ($env:OS -eq 'Windows_NT') {
+        $null = & icacls $Ruta /grant '*S-1-1-0:R'
+    }
+    else {
+        & chmod 644 $Ruta
+    }
 }
 
 # Pares «ruta|regla» de una lista de hallazgos, para comparar con lo esperado.

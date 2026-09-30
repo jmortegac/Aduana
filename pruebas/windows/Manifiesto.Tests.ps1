@@ -91,7 +91,9 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
     BeforeAll {
         $env:ADUANA_ESTADO = Join-Path $TestDrive 'estado'
         $clave = Join-Path $TestDrive 'clave'
-        & $ssh -q -t ed25519 -N '' -C 'prueba' -f $clave | Out-Null
+        # Con el helper de Aduana y no con &, porque Windows PowerShell 5.1 se come los argumentos
+        # vacíos al llamar a un programa externo y ssh-keygen se quedaría sin la frase de paso vacía.
+        $null = Invoke-AduanaProceso -Programa $ssh -Argumentos @('-q', '-t', 'ed25519', '-N', '', '-C', 'prueba', '-f', $clave)
     }
     AfterAll {
         Remove-Item Env:\ADUANA_ESTADO -ErrorAction SilentlyContinue
@@ -128,7 +130,7 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
         [IO.File]::WriteAllText((Join-Path $vol 'a.txt'), 'AAA')
         Remove-Item (Join-Path $vol 'b.txt')
         Write-FixtureTexto (Join-Path $vol 'nuevo.txt') 'nuevo'
-        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target '/etc'
+        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target ([IO.Path]::GetTempPath())
         Write-FixtureTexto (Join-Path $vol '.DS_Store') 'otra basura'
         $r = Invoke-Capturado -Argumentos @('verificar', $vol, '--json')
         $r.Codigo | Should -Be 2
@@ -157,7 +159,10 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
         $abierta = Join-Path $TestDrive ("abierta-" + [Guid]::NewGuid().ToString('N'))
         Copy-Item $clave $abierta
         Copy-Item "$clave.pub" "$abierta.pub"
-        & chmod 644 $abierta
+        # Una clave privada que pueden leer otros: ssh-keygen se niega a usarla sin preguntar nada.
+        # Una clave corrupta no sirve, porque ssh-keygen la toma por cifrada y se queda esperando la
+        # frase de paso.
+        Open-FixtureClaveAOtros -Ruta $abierta
         $r = Invoke-Capturado -Argumentos @('salida', 'firmar', $vol, '--clave', $abierta)
         $r.Codigo | Should -Be 3
         foreach ($n in (Get-AduanaNombresManifiesto)) {
@@ -172,7 +177,10 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
         $abierta = Join-Path $TestDrive ("abierta-" + [Guid]::NewGuid().ToString('N'))
         Copy-Item $clave $abierta
         Copy-Item "$clave.pub" "$abierta.pub"
-        & chmod 644 $abierta
+        # Una clave privada que pueden leer otros: ssh-keygen se niega a usarla sin preguntar nada.
+        # Una clave corrupta no sirve, porque ssh-keygen la toma por cifrada y se queda esperando la
+        # frase de paso.
+        Open-FixtureClaveAOtros -Ruta $abierta
         (Invoke-Capturado -Argumentos @('salida', 'firmar', $vol, '--clave', $abierta)).Codigo | Should -Be 3
         [IO.File]::ReadAllText((Join-Path $vol 'ADUANA-MANIFIESTO.txt')) | Should -BeExactly $antes
         Test-Path (Join-Path $vol 'ADUANA-MANIFIESTO.txt.sig') | Should -BeTrue
@@ -183,7 +191,7 @@ Describe 'Firmar y verificar con ssh-keygen de verdad' {
     }
 
     It 'se niega a firmar con enlaces simbólicos' -Skip:(-not $haySsh) {
-        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target '/etc'
+        $null = New-Item -ItemType SymbolicLink -Path (Join-Path $vol 'enlace') -Target ([IO.Path]::GetTempPath())
         $r = Invoke-Capturado -Argumentos @('salida', 'firmar', $vol, '--clave', $clave)
         $r.Codigo | Should -Be 3
         Test-Path (Join-Path $vol 'ADUANA-MANIFIESTO.txt') | Should -BeFalse

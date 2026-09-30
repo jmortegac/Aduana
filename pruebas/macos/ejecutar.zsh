@@ -193,7 +193,13 @@ comprobar "aplicación de macOS"       esperado peligroso extension-peligrosa Ju
 comprobar "enlace simbólico"          esperado sospechoso enlace-simbolico enlace
 comprobar "carpeta oculta"            esperado informativo oculto Fotos
 comprobar "artefacto .DS_Store"       esperado informativo artefacto-sistema .DS_Store
-comprobar "artefacto AppleDouble"     esperado informativo artefacto-sistema ._nota.txt
+# Algunas versiones de macOS gestionan ellas mismas un ._ con cabecera AppleDouble válida en exFAT
+# y no lo enseñan al listar. Si no se ve, no hay nada que Aduana deba informar.
+if [[ -n $(ls -A "$VOL_RO" | grep -x '._nota.txt') ]]; then
+  comprobar "artefacto AppleDouble"   esperado informativo artefacto-sistema ._nota.txt
+else
+  comprobar "artefacto AppleDouble (el sistema lo oculta)" no_contiene "$TMP/i.json" '"ruta":"._nota.txt"'
+fi
 comprobar "._ falso no es artefacto"  esperado peligroso extension-peligrosa ._trampa.exe
 comprobar "no entra en el paquete"    no_contiene "$TMP/i.json" 'Juego.app/Contents'
 comprobar "carpeta con .exe no cuenta" no_contiene "$TMP/i.json" '"ruta":"carpeta.exe"'
@@ -243,14 +249,15 @@ chmod +x "$TMP/bin/clamscan" "$TMP/bin/curl"
 PATH="$TMP/bin:$PATH" "$ADUANA" inspeccionar "$VOL_RO" --json > "$TMP/av.json"
 comprobar "ClamAV, detección anotada" contiene "$TMP/av.json" '"nivel":"peligroso","regla":"antivirus","ruta":"foto.jpg","detalle":"Win.Test.EICAR_HDB-1"'
 comprobar "ClamAV, estado detecciones" rc_es "$(json_campo "$TMP/av.json" antivirus.estado)" detecciones
-"$ADUANA" inspeccionar "$TMP/limpia" --json > "$TMP/av.json"
+# Con el PATH mínimo del sistema, para que no influya lo que haya instalado en la máquina.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin "$ADUANA" inspeccionar "$TMP/limpia" --json > "$TMP/av.json"
 comprobar "sin ClamAV, no disponible" rc_es "$(json_campo "$TMP/av.json" antivirus.estado)" no-disponible
 cp "$VOL_RO/foto.jpg" "$TMP/limpia/foto.jpg"
 VT_FOTO="$TMP/limpia/foto.jpg" VT_API_KEY=clave-de-prueba PATH="$TMP/bin:$PATH" \
   "$ADUANA" inspeccionar "$TMP/limpia" --sin-antivirus --virustotal --json > "$TMP/vt.json" 2>/dev/null
 comprobar "VirusTotal, 7 motores es peligroso" contiene "$TMP/vt.json" '"regla":"virustotal","ruta":"foto.jpg"'
 rm -f "$TMP/limpia/foto.jpg"
-"$ADUANA" salida cifrar "$TMP/limpia" >/dev/null 2>&1
+PATH=/usr/bin:/bin:/usr/sbin:/sbin "$ADUANA" salida cifrar "$TMP/limpia" >/dev/null 2>&1
 comprobar "cifrar sin 7-Zip devuelve 3" rc_es $? 3
 
 # =============================================================================================
